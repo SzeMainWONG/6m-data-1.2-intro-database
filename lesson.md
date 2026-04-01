@@ -192,5 +192,5 @@ Evaluate an unnormalised dataset and decompose it step-by-step into 3rd Normal F
 3. **Normalisation removes redundancy** — but know when to stop. Production databases often balance between 3NF and performance.
 
 ### Next Steps
-- **Post-Class:** Complete the [FoodFast Database Design Challenge](./post-class.md) — design and export a 7-table schema (45–60 min).
+- **Post-Class:** Complete the [FoodFast Database Design Challenge](./assignment.md) — design and export a 7-table schema (45–60 min).
 - **Next Lesson:** Lesson 1.3 is where you start *building* these schemas with real SQL DDL commands.

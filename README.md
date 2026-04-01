@@ -31,7 +31,7 @@ By the end of this lesson, you will be able to:
 |----------|-------------|-----------|
 | [Pre-Class](./pre-class.md) | Database types, keys, and normalisation fundamentals | 30–45 min |
 | [Lesson Plan](./lesson.md) | Instructor guide for the 3-hour flipped classroom session | 3 hours |
-| [Post-Class](./post-class.md) | FoodFast Database Design Challenge | 45–60 min |
+| [Post-Class](./assignment.md) | FoodFast Database Design Challenge | 45–60 min |
 | [Reference](./reference.md) | DBML syntax, ERD notation, and normalisation cheat sheet | As needed |
 
 ---
