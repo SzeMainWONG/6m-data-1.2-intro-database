@@ -1,5 +1,14 @@
 # 📚 Lesson 1.2: Data Modeling & Schema Design
 
+## Before This Lesson
+
+Make sure you have:
+- Completed **Lesson 1.1** (Introduction to Data Science) — this lesson builds on your understanding of what data is and why it matters
+- A free account on [dbdiagram.io](https://dbdiagram.io/d) — you'll use it in Parts 2 and 3 to draw database diagrams directly in your browser (no install needed)
+- A basic grasp of Python variables — we'll use this as a mental anchor when explaining why databases exist
+
+---
+
 ## Session Overview
 
 | | |
@@ -39,18 +48,6 @@ To persist data, we need a Database. But not all data is created equal — you w
 | **Relational (SQL)** | **Structured & Rigid.** Think of it like a bank vault — highly organized, strict rules. | Financials, Inventories, User Accounts | PostgreSQL, MySQL, Snowflake |
 | **NoSQL** | **Flexible & Fast.** Think of it like a messy desk — throw documents anywhere, find them fast. | Social Media feeds, Chat logs, IoT sensor data | MongoDB, Cassandra |
 | **Vector** | **Semantic & AI.** Think of it like a brain association game — "King" is close to "Queen". | Image search, LLM Memory, Recommendation engines | Pinecone, Weaviate |
-
-**SQL Data Types:**
-
-| Data Type | Description |
-|-----------|-------------|
-| `INT` | Integer, whole number |
-| `VARCHAR` | Variable length character |
-| `TEXT` | Long text |
-| `DATE` | Date |
-| `TIME` | Time |
-| `DATETIME` | Date and time |
-| `BOOLEAN` | True or false |
 
 ### 🛠️ Activity 1: The Sorting Game (10 min)
 
@@ -104,6 +101,17 @@ The glue that holds this blueprint together is the **ID**.
 ### 🛠️ Activity 2.1: Code-Along — Car Insurance Schema (15 min)
 
 Open [dbdiagram.io](https://dbdiagram.io/d) and paste the following code. Read the comments as you go.
+
+> **SQL Data Types Reference** — you'll use these when declaring columns in DBML:
+>
+> | Data Type | Description |
+> |-----------|-------------|
+> | `INT` | Whole number (e.g., age, quantity) |
+> | `VARCHAR` | Short text with variable length (e.g., name, email) |
+> | `TEXT` | Long text (e.g., description, notes) |
+> | `DATE` | Calendar date (e.g., 2026-01-01) |
+> | `DATETIME` | Date + time (e.g., 2026-01-01 09:30:00) |
+> | `BOOLEAN` | True or false |
 
 ```dbml
 // --- 1. Define the Customer ---
@@ -174,6 +182,50 @@ Each entity has the following attributes:
 - Write the DBML to create the ERD.
 - Submit your code in the Discord Peer-Review Channel.
 
+<details>
+<summary>Click here to view a sample solution</summary>
+
+```dbml
+Table students {
+  id int [pk, increment]
+  name varchar
+  address varchar
+  phone varchar
+  email varchar
+  class_id int  // FK → classes
+}
+
+Table teachers {
+  id int [pk, increment]
+  name varchar
+  address varchar
+  phone varchar
+  email varchar
+}
+
+Table classes {
+  id int [pk, increment]
+  name varchar
+}
+
+// Junction table: a class can have many teachers, a teacher can teach many classes
+Table class_teachers {
+  class_id int    // FK → classes
+  teacher_id int  // FK → teachers
+}
+
+Ref: students.class_id > classes.id         // Many students belong to one class
+Ref: class_teachers.class_id > classes.id   // Many-to-many: classes ↔ teachers
+Ref: class_teachers.teacher_id > teachers.id
+```
+
+**Key design decisions:**
+- `students.class_id` is a FK to `classes` because each student belongs to exactly one class (one-to-many).
+- The `class_teachers` junction table resolves the many-to-many relationship between classes and teachers — a teacher can teach many classes, and a class can have many teachers.
+- The original spec has `class_id` as an attribute on Teacher — this works if each teacher only ever belongs to one class, but the junction table approach is more flexible and correct given the many-to-many requirement.
+
+</details>
+
 ---
 
 ## 🏃 Part 3: Organizing Your Data — Normalization (50 min)
@@ -183,7 +235,9 @@ Evaluate a raw, un-normalized dataset and decompose it into a 3rd Normal Form (3
 
 ### Concept Overview
 
-> **Interactive Tutorial:** Before reading further, try the [Normalization Interactive Visualization](https://su-ntu-ctp.github.io/6m-data-1.2-intro-database/). Open this file in your web browser and follow the 8-step guided tour to see these ideas come to life.
+> ### 🖥️ Start Here: Interactive Visualization
+> **Before reading the explanations below, open the [Normalization Interactive Visualization](https://su-ntu-ctp.github.io/6m-data-1.2-intro-database/) in your browser.**
+> It's an 8-step guided tour that animates exactly what happens when you normalize a table. Going through it first will make the written explanations much easier to follow.
 
 **The Coffee Shop Story:** Every time you buy coffee, the cashier writes your complete home address on each paper slip. If you move, they'd need to update hundreds of receipts. This is an "Update Anomaly" — changing one fact forces updates in many places.
 
@@ -216,9 +270,37 @@ Evaluate a raw, un-normalized dataset and decompose it into a 3rd Normal Form (3
 
 #### Rule 2 (2NF): Everything Relates to the Complete ID — "The Address Book Rule"
 
-**The Problem:** In a library tracking who borrowed which books, Alice's name appears multiple times. If Alice changes her name, you'd have to update multiple rows. Also, "Book Title" depends on "Book ID," not on the specific borrowing transaction.
+**The Problem — Before 2NF:**
 
-**The Solution:** Split into three tables — Students, Books, and Borrowing Records. Each piece of information connects to its complete identifier.
+| BorrowID | StudentID | StudentName | BookID | BookTitle | BorrowDate |
+|----------|-----------|-------------|--------|-----------|------------|
+| 1 | S01 | Alice | B10 | Dune | 2026-01-05 |
+| 2 | S01 | Alice | B20 | 1984 | 2026-01-12 |
+| 3 | S02 | Bob | B10 | Dune | 2026-01-08 |
+
+Two problems here: Alice's name is repeated across rows (if she changes her name, every row needs updating). And "Dune" appears twice — BookTitle depends on BookID, not on who borrowed it or when.
+
+**The Solution — After 2NF:**
+
+Split into three tables so each fact lives with its natural identifier:
+
+| StudentID | StudentName |
+|-----------|-------------|
+| S01 | Alice |
+| S02 | Bob |
+
+| BookID | BookTitle |
+|--------|-----------|
+| B10 | Dune |
+| B20 | 1984 |
+
+| BorrowID | StudentID | BookID | BorrowDate |
+|----------|-----------|--------|------------|
+| 1 | S01 | B10 | 2026-01-05 |
+| 2 | S01 | B20 | 2026-01-12 |
+| 3 | S02 | B10 | 2026-01-08 |
+
+Now changing Alice's name means updating **one cell** in the Students table — not three rows.
 
 ---
 
@@ -265,6 +347,40 @@ Work through the normalization steps with your group:
 
 **Final Result — 4 clean tables:** Customers, Products, Orders, Order Line Items.
 
+<details>
+<summary>Click here to view the final DBML for all 4 tables</summary>
+
+```dbml
+Table customers {
+  id int [pk, increment]
+  name varchar
+}
+
+Table products {
+  id int [pk, increment]   // was ItemID
+  name varchar             // was ItemName
+  price decimal
+}
+
+Table orders {
+  id int [pk, increment]   // was OrderID
+  customer_id int          // FK → customers
+  order_date date
+}
+
+Table order_line_items {
+  order_id int             // FK → orders (part of composite PK)
+  line_number int          // Added in Step 1 for uniqueness (part of composite PK)
+  product_id int           // FK → products
+}
+
+Ref: orders.customer_id > customers.id
+Ref: order_line_items.order_id > orders.id
+Ref: order_line_items.product_id > products.id
+```
+
+</details>
+
 ### 🛠️ Activity 3.2: Your Turn to Practice (15 min)
 
 **Scenario:** You run a Movie Rental Service.
@@ -279,10 +395,70 @@ Work through the normalization steps with your group:
 
 **Task:** Normalize this to 3NF. Create the necessary tables and identify the Primary Keys and Foreign Keys. Write it in DBML and share in Discord.
 
+<details>
+<summary>Click here to view a sample solution</summary>
+
+**Step 1 — Spot the violations:**
+- `CustomerName` and `CustomerPhone` depend on the customer, not on the rental → 2NF violation
+- `MovieGenre` depends on the movie, not on the rental → 2NF / 3NF violation
+- R1 has two movies — `RentalID` alone doesn't uniquely identify a row → we need a line number
+
+**Step 2 — The 3NF DBML:**
+
+```dbml
+Table customers {
+  id int [pk, increment]
+  name varchar         // was CustomerName
+  phone varchar        // was CustomerPhone
+}
+
+Table movies {
+  id int [pk, increment]
+  title varchar        // was MovieTitle
+  genre varchar        // was MovieGenre — depends on movie, not rental
+}
+
+Table rentals {
+  id int [pk, increment]   // was RentalID
+  customer_id int          // FK → customers
+  rental_date date
+  return_date date
+}
+
+Table rental_line_items {
+  rental_id int    // FK → rentals
+  line_number int  // makes each row unique within a rental
+  movie_id int     // FK → movies
+}
+
+Ref: rentals.customer_id > customers.id
+Ref: rental_line_items.rental_id > rentals.id
+Ref: rental_line_items.movie_id > movies.id
+```
+
+**Result:** 4 tables — Customers, Movies, Rentals, Rental Line Items. Every fact lives exactly once.
+
+</details>
+
 ### 💬 Reflection
 
 - When might a team *intentionally* denormalize (break normalization rules) for performance reasons? What are the trade-offs?
+
+<details>
+<summary>Suggested answer</summary>
+
+Denormalization is common in read-heavy systems like analytics dashboards or data warehouses. Joining 10 tables to answer every query is slow, so teams sometimes store pre-joined or duplicated data to speed things up. The trade-off is that **writes become risky** — you can update a price in one place and forget another, leading to inconsistencies. This is why analytics systems (like Snowflake or BigQuery) accept some redundancy for query speed, while transactional systems (like a bank) stay strictly normalized.
+
+</details>
+
 - How does normalization protect against "Update Anomalies"?
+
+<details>
+<summary>Suggested answer</summary>
+
+An **Update Anomaly** happens when you change one fact and have to hunt down multiple rows to update it everywhere it appears. Normalization prevents this by ensuring each fact lives in exactly one place. For example, if a customer's phone number is stored in one row of a `customers` table (not repeated across every order row), you only ever update one cell — and it's automatically reflected everywhere that customer is referenced.
+
+</details>
 
 ---
 

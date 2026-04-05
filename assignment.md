@@ -4,6 +4,14 @@ Topic: Complex Relationships & Data Integrity
 
 Estimated Time: 45–60 Minutes
 
+## 🎯 What You'll Practice
+
+By completing this assignment you will have practised:
+- Designing a multi-table schema from plain-English requirements
+- Resolving a many-to-many relationship using a junction table
+- Handling historical data integrity (a real-world engineering problem)
+- Reading auto-generated SQL and asking informed questions about it
+
 ## **🌯 The Scenario**
 
 You have been hired as the Lead Backend Engineer for "FoodFast," a new competitor to UberEats/DoorDash.
@@ -54,23 +62,48 @@ Task:
 
 Modify your schema to ensure that even if the Restaurant updates the Menu Item price, the historic Order Record remains accurate to what was actually paid at that moment.
 
+<details>
+<summary>💡 Hint (try for 5 minutes before opening this)</summary>
+
+Think about **where in your schema a transaction is recorded**. When John places an order, his `order_items` row is created at that exact moment. What if you added an extra column to `order_items` that captured the price *right then*, independent of the `menu_items` table? That way, even if the menu price changes later, the transaction row still holds the original value.
+
+</details>
+
 ## **🔮 Challenge 3: Looking Ahead to SQL (DDL)**
 
 In our next lesson, we will write the code to actually create these tables.
 
 dbdiagram.io has a magic feature.
 
-1. Build your diagram.  
-2. Look for the **"Export"** function (often "Export to PostgreSQL" or "Export to MySQL").  
+1. Build your diagram.
+2. Look for the **"Export"** function (often "Export to PostgreSQL" or "Export to MySQL").
 3. Generate the SQL code.
+
+> **If the Export button isn't available on your plan:** Don't worry — manually write a `CREATE TABLE` statement for the `users` table using what you already know. It might look wrong or incomplete, and that's fine. Lesson 1.3 (DDL) will teach you the correct syntax, and you can compare it then.
 
 Task:
 
-Paste the generated code for your Users table below. Try to read it.
+Paste the generated code for your Users table below. Try to read it, then open the answers below.
 
-* What does NOT NULL mean?  
-* What does DEFAULT mean?  
-* Bring 2 questions about this syntax to the next class.
+* What does NOT NULL mean?
+
+<details>
+<summary>Answer</summary>
+
+`NOT NULL` is a constraint that tells the database this column **must always have a value** — you cannot insert a row and leave this field empty. For example, `email varchar NOT NULL` means every user must have an email address; the database will reject any insert that tries to leave it blank.
+
+</details>
+
+* What does DEFAULT mean?
+
+<details>
+<summary>Answer</summary>
+
+`DEFAULT` sets an **automatic fallback value** for a column if you don't provide one when inserting a row. For example, `rating decimal DEFAULT 0` means if you add a new restaurant without specifying a rating, the database fills in `0` automatically. It's a way of making columns optional without allowing them to be `NULL`.
+
+</details>
+
+* Note down 2 questions about anything else in the SQL syntax that puzzles you — you'll get answers when you work through Lesson 1.3 (DDL), which covers exactly this code.
 
 
 ## **✅ Solution Key (Don't peek until you try\!)**
@@ -149,67 +182,49 @@ Ref: order_items.menu_item_id > menu_items.id
 </details>
 
 ---
-## **📖Post Class Reading**
-### **3.3 Synthesis** 
+## **📖 Post-Class Reading: Normalisation Trade-offs**
 
-### Instructor Prompt
+You’ve normalised the FoodFast schema. But real-world databases aren’t always fully normalised — and for good reason. Work through the two scenarios below, think about your answer, then open the explanation.
 
-> Our tables are now fully normalised. But let’s explore the following situations:
->
-> **Step 1 – Historical Accuracy:**
-> Imagine the iPhone’s price increases to $1200 next year.
->
-> * What happens if we try to calculate last year’s revenue from our tables?
-> * How does full normalisation affect historical reporting?
->
-> **Step 2 – Query Complexity:**
-> Assuming we **did store historical prices**, how easy is it to answer questions like ‘Total revenue by product last year’ using only fully normalised tables?
->
-> * Consider the joins you would need and how this scales with large datasets.
+**Scenario 1 – Historical Accuracy:**
+Imagine the iPhone’s price increases to $1,200 next year. If your `order_line_items` table only stores a FK to `menu_items` (not the actual price paid), what happens when you try to calculate last year’s revenue?
 
-### Learner Goal
+**Scenario 2 – Query Complexity:**
+Assuming you *did* store historical prices in `order_line_items`, how many table joins would you need to answer "Total revenue by product last year"? What might that mean for a database with millions of rows?
 
 Understand the trade-offs of full normalisation:
 
 <details>
-<summary>1. Structural correctness ✅</summary>
+<summary>Scenario 1 answer — What happens to last year’s revenue?</summary>
 
-* Fully normalised tables store each fact in exactly one place.
-* Example: No duplicate customers, consistent foreign key references, each order linked to the correct items.
-* **Why it matters:** Ensures entity relationships remain consistent, and avoids wasting storage on redundant or repeated data.
+Your query joins `orders → order_line_items → menu_items` to get the price. But `menu_items.current_price` is now $1,200. The join returns $1,200 for every iPhone sold last year — even though customers actually paid $1,000. **Your revenue report is now wrong, and historic receipts are inaccurate.** This is why we added `price_at_purchase` to `order_items` in Challenge 2: transactions must snapshot the price at the moment of purchase, not reference a live price that can change.
 
-</details>
-
-<details>
-<summary>2. Historical accuracy ⚠️</summary>
-
-* Fully normalised tables reference **current descriptive data**.
-* Updating `ItemPrice` in the `Items` table changes join results, so past revenues can appear wrong.
-* **Example:** Joining `Orders → OrderLineItems → Items` today gives $1200 for last year’s iPhone, even though it was sold for $1000.
+Fully normalised tables store each fact in exactly one place, which is great for avoiding duplicates — but “current price” and “price paid” are two different facts that both deserve their own column.
 
 </details>
 
 <details>
-<summary>3. Query efficiency ⚠️</summary>
+<summary>Scenario 2 answer — How complex does the query get?</summary>
 
-* Analytical questions often require joining multiple tables.
-* **Example:** To calculate “total revenue by product last year” (assuming historical prices are stored), we need to join `Orders → OrderLineItems → Items` for every row.
-* Large datasets + multiple joins → slower queries and more complex SQL.
+To answer “total revenue by product last year” you’d need something like:
+
+`orders → order_line_items → menu_items`
+
+That’s 3 tables joined. As your database grows to millions of rows, every join multiplies the work the database has to do. This is manageable for transactional queries (looking up one order), but slow for analytical queries that scan entire tables.
+
+This is why analytics systems like data warehouses often **deliberately denormalise** — they store `product_name` and `price_at_purchase` directly in the transaction row, sacrificing some storage efficiency to make reporting queries fast and simple.
 
 </details>
 
 <details>
-<summary>4. Controlled denormalisation</summary>
+<summary>The underlying principle — Structural correctness vs. practical trade-offs</summary>
 
-* To solve these practical issues, systems often **store slowly changing descriptive data directly in transactions**:
+Fully normalised tables guarantee **structural correctness**: no duplicate customers, consistent foreign key references, each fact in one place. But real systems often accept controlled denormalisation for two reasons:
 
-  * Example: `sold_price`, `Product category`, `Brand` at time of sale.
+- **Historical accuracy:** Storing `sold_price` directly in the transaction row preserves what actually happened, regardless of future price changes.
+- **Query efficiency:** Fewer joins means faster analytics, especially at scale.
 
-* **Benefits:**
-
-  * Preserves historical revenue and product context.
-  * Reduces joins → faster queries.
-  * Simplifies analytics and reporting.
+Good data design means knowing *when* to normalise strictly and *when* to bend the rules intentionally.
 
 </details>
 
